@@ -1,0 +1,23 @@
+# Directories to be ignored
+local
+plots
+
+old_configs
+
+model_states
+LKTL
+pytorch
+
+old_R_scripts
+
+
+# Filetypes to be ignored
+*.h5
+*.RData
+
+
+__pycache__
+*.pyc
+
+.vscode
+.DS_Store
