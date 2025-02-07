@@ -1,0 +1,14 @@
+Package: CV.eDNA
+Title: Taxonomic refinement of computer vision classifications
+Version: 0.0.1
+Authors@R: 
+    person("Jarrett", "Blair", , "jarrett@ecos.au.dk", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-9132-8102"))
+Description: A package for refining computer vision classifications using metabarcoding data.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports: 
+    dplyr,
+    caret
