@@ -13,7 +13,7 @@ from tensorflow.keras.optimizers import Adam
 import pandas as pd
 import numpy as np
 import os
-os.chdir(r"C:\Users\blair\OneDrive - UBC\CV-eDNA-Hybrid\ct_classifier")
+os.chdir(r"C:\Users\au761482\OneDrive - Aarhus universitet\Documents\GitHub_repos\CV-eDNA-Hybrid\Model_Scripts")
 
 import json
 import argparse

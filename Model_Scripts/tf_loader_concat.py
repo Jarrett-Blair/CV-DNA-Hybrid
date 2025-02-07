@@ -23,6 +23,7 @@ class CTDataset:
         '''
         # Where 
         self.data_root = cfg['data_root']
+        self.img_path = cfg['img_path']
         self.num_class = cfg['num_classes']
         self.img_size = cfg['image_size']
         self.batch_size = cfg['batch_size']
@@ -113,7 +114,7 @@ class CTDataset:
         '''
         for X, image_name, label in self.data:
             # Load image
-            image_path = os.path.join(self.data_root, 'AllPhotosJPG', image_name)
+            image_path = os.path.join(self.data_root, self.img_path, image_name)
             img = tf.io.read_file(image_path)
             img = tf.image.decode_image(img, channels=3)  # Assuming RGB images
             img = tf.image.resize(img, self.img_size)

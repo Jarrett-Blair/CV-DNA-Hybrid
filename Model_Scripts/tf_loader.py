@@ -25,6 +25,7 @@ class CTDataset:
 
         # Where
         self.data_root = cfg['data_root']
+        self.img_path = cfg['img_path']
         self.num_class = cfg['num_classes']
         self.img_size = cfg['image_size']
         self.batch_size = cfg['batch_size']
@@ -101,7 +102,7 @@ class CTDataset:
         """
         for image_name, label in self.data:
             # Load image
-            image_path = os.path.join(self.data_root, 'AllPhotosJPG', image_name)
+            image_path = os.path.join(self.data_root, self.img_path, image_name)
             img = load_img(image_path, target_size=self.img_size)
             img_array = img_to_array(img)
 

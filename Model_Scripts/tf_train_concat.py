@@ -11,12 +11,12 @@ from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import concatenate
 from tensorflow.keras.optimizers import Adam
-from keras.layers import Input
+from tensorflow.keras.layers import Input
 from sklearn.utils.class_weight import compute_class_weight
 import numpy as np
 import pandas as pd
 import os
-os.chdir(r"C:\Users\blair\OneDrive - UBC\CV-eDNA-Hybrid\ct_classifier")
+os.chdir(r"C:\Users\au761482\OneDrive - Aarhus universitet\Documents\GitHub_repos\CV-eDNA-Hybrid\Model_Scripts")
 
 import json
 import argparse
