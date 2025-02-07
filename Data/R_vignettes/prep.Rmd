@@ -1,0 +1,226 @@
+---
+title: "Data preparation vignette"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(here)
+library(stringr)
+library(dplyr)
+library(CV.eDNA)
+
+parent_path = normalizePath(file.path(here(), ".."))
+data_path = file.path(parent_path, "Clean_Data")
+image_df = read.csv(file.path(data_path, "image_df.csv"))
+dna_df = read.csv(file.path(data_path, "dna_df.csv"))
+
+```
+
+This vignette will walk through the process of preparing image and DNA metadata for use in an image-DNA multimodal classification model, and for classification granularity refinement.
+
+### Data requirements
+
+The data we use for this vignette comes from the National Ecological Observatory Network (NEON) pitfall trap invertebrate bycatch. This vignette is intended to be compatible with most ecological datasets, but there are some minimum formatting and content requirements that your datasets must meet. These requirements are the same for both the image and DNA datasets. 
+
+Formatting requirements are:
+
+1. Each row of the dataset should contain data for a single "observation" (a specimen, DNA detection, etc.).
+
+The minimum content requirements are:
+
+1. A column containing the sample ID for each observation. *(In our example this is the "Event" column)*
+
+2. Columns with the taxonomic names at each taxonomic rank of interest. *(In our example these are the columns "Family", "Genus", "Species", etc.)* 
+
+3. A column with the detection level of the observation. This is the finest taxonomic level for which the observation has a taxonomic name. Any given value for this column must match the name of a taxonomic rank column. *(In our example this is the "Det_level" column)*
+
+An example of a compatible dataset is printed below. For the sake of space this example has fewer taxonomic rank columns than the dataset we will be using for the rest of the vignette.
+
+```{r small_example, echo=FALSE}
+print(head(dna_df[,c("Event", "Genus", "Species", "Det_level")]))
+```
+
+## The vignette
+
+### Creating reference hierarchies
+
+A "reference hierarchy" is a data frame with the taxonomic names at all taxonomic ranks of interest for all unique taxa in a dataset. They will be useful for making "long labels" (see next section) and for classification granularity refinement.
+
+To start making our reference hierarchies, we first need to make a vector naming all of the ranks we want to include.
+
+```{r set_ranks}
+ranks = c("Species", 
+          "Genus", 
+          "Subfamily", 
+          "Family", 
+          "Superfamily", 
+          "Infraorder", 
+          "Suborder", 
+          "Order", 
+          "Superorder", 
+          "Subclass", 
+          "Class", 
+          "Subphylum", 
+          "Phylum")
+```
+
+Next we need to make a "base_name" column. This is because the taxonomic granularity of the observations varies in the NEON datasets. The base_name column will contain the most specific name for each observation, as specified by the "Det_level" column.
+
+```{r get_basename}
+image_df$base_name = NA
+dna_df$base_name = NA
+
+for(i in 1:nrow(image_df)){
+  image_df$base_name[i] = image_df[i,image_df$Det_level[i]]
+}
+
+for(i in 1:nrow(dna_df)){
+  dna_df$base_name[i] = dna_df[i,dna_df$Det_level[i]]
+}
+
+
+```
+
+Now we can plug our data frames into the `refhier()` function to make our reference hierarchies.
+
+```{r refhier}
+image_hier = refhier(df = image_df,
+                     ranks = ranks, 
+                     base_rank = "base_name",
+                     det_level = "Det_level")
+
+dna_hier = refhier(df = dna_df,
+                   ranks = ranks,
+                   base_rank = "base_name",
+                   det_level = 'Det_level')
+
+```
+
+### Creating "long labels"
+
+Long labels are the class names we will use in our classification model. They contain taxonomic information at multiple ranks (e.g. "Arthropoda_Insecta_Coleoptera"), and make it so related taxa naturally group together alphabetically when making data visualizations. 
+
+Making long labels is optional. When working with large datasets, it might be preferable to not use long labels, as they are not memory efficient.
+
+To make our long labels, we first create a simplified version of our image-based reference hierarchy that only contains major taxonomic levels. We can then create a data frame version of our image-based long labels by matching our image base names with the simplified reference hierarchy.
+
+```{r simphier}
+simphier = image_hier[,c('Species',
+                        'Genus',
+                        'Family',
+                        'Order',
+                        'Class',
+                        'Phylum')]
+
+# Create longlabels df
+image_longlab_df = simphier[match(image_df$base_name, simphier$Species), ]
+
+```
+
+Now that we have the long label data frame, we are going to do some data cleaning before moving on. In our classification model we grouped all Myriapods, Gastropods, and Annelids together, and only kept classes with 100 or more total observations in the image dataset.
+
+```{r image_longlab_1}
+# Merging up finer-grain labels of gastropods and annelids
+image_longlab_df = image_longlab_df%>%
+  mutate(
+    Order = case_when(
+      Order == "Chilopoda" ~ "Myriapoda",
+      Order == "Diplopoda" ~ "Myriapoda",
+      Class == "Myriapoda" ~ "Myriapoda",
+      Class == "Gastropoda" ~ "Gastropoda",
+      Phylum == "Annelida" ~ "Annelida",
+      TRUE ~ Order
+    ),
+    Class = case_when(
+      Class == "Chilopoda" ~ "Myriapoda",
+      Class == "Diplopoda" ~ "Myriapoda",
+      Phylum == "Annelida" ~ "Annelida",
+      TRUE ~ Class
+    )
+  )
+
+# Determine which taxa are >100 obs
+alltable = table(image_longlab_df$Order)
+allname = names(which(alltable > 99))
+
+keep_idx = image_longlab_df$Order %in% allname
+
+image_df = image_df[keep_idx,]
+image_longlab_df = image_longlab_df[keep_idx,]
+```
+
+Once we have cleaned the data frame, we can make our final image long labels. For this example we are using taxonomic names from phylum to order level.
+
+```{r image_longlab_2}
+
+image_longlab_vector = apply(image_longlab_df[,-c(1:3)], 1, function(row) {
+  reversed_row <- rev(row)
+  paste(reversed_row, collapse = "_")
+})
+image_df$longlab = image_longlab_vector
+
+```
+
+Now that we have made our image long labels, we can also make DNA long labels, starting with the DNA long label data frame.
+
+```{r dna_longlab_1}
+dna_longlabels = dna_hier[match(dna_df$base_name, dna_hier$Species), ]
+
+```
+
+Our DNA labels are finer than our model's known classes, so we need to make a column with the label for each observation at the taxonomic level known by the model. These labels will be essential for generating the DNA-based assemblage data that will be fed to our classification model.
+
+If a DNA detection is a taxon not known by the model at any level, it will be left as "NA".
+
+```{r dna_orderplus}
+# Add known column to longlabels
+known_classes = unique(image_longlab_df$Order)
+
+known_level = apply(dna_longlabels, 1, function(row) {
+  match(TRUE, row %in% known_classes)
+})
+
+dna_df$known_class = c()
+for(i in 1:nrow(dna_longlabels)){
+  if(is.na(known_level[i])){
+    dna_df$known_class[i] = NA
+  }
+  else{
+    dna_df$known_class[i] = dna_longlabels[i,known_level[i]]
+  }
+}
+```
+
+We can also finish making our DNA long labels.
+
+```{r dna_longlab_2}
+dnalonglab_vector = simphier[match(dna_df$known_class, simphier$Order), ]
+dnalonglab_vector = apply(dnalonglab_vector[,-c(1:3)], 1, function(row) {
+  reversed_row <- rev(row)
+  paste(reversed_row, collapse = "_")
+})
+dna_df$longlab = dnalonglab_vector
+```
+
+### Generating assemblage data
+
+Now that we have our long labels and known classes, we can generate our DNA assemblage data using the `get_assemblage()` function. This will output binary assemblage data for each known class at each sampling event.
+
+```{r assemblage}
+dna_rmna = dna_df[!is.na(dna_df$known_class),]
+dna_assemblage = get_assemblage(obs = dna_rmna$longlab,
+                  events = dna_rmna$Event,
+                  all_taxa = unique(image_df$longlab)
+                  )
+```
+
+Below is a small snippet of what this assemblage data looks like. Column names have been shortened for brevity.
+
+```{r, echo=FALSE}
+p_assembl = dna_assemblage
+p_cols = colnames(dna_assemblage)
+p_cols[1:3] = c("Annelida", "Acari", "Araneae")
+colnames(p_assembl) = p_cols
+print(p_assembl[1:6, 1:3])
+```

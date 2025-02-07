@@ -1,0 +1,190 @@
+---
+title: "Granularity refinement"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T)
+library(here)
+library(stringr)
+library(dplyr)
+library(CV.eDNA)
+
+parent_path = normalizePath(file.path(here(), ".."))
+refine_path = file.path(parent_path, "Granularity_Refinement")
+
+hierarchy = read.csv(file.path(refine_path, "hierarchy.csv"))
+dna_df = read.csv(file.path(refine_path, "dna_df.csv"))
+valid = read.csv(file.path(refine_path, "valid.csv"))
+train = read.csv(file.path(refine_path, "train.csv"))
+num_ids = read.csv(file.path(refine_path, "num_ids.csv"))
+assemblages = read.csv(file.path(refine_path, "assemblages.csv"))
+
+```
+
+This vignette will demonstrate classification granularity refinement using DNA metabarcoding data. The data used for this vignette can be found in the Data/Granularity_Refinement directory of our GitHub repository. This data includes:
+
+- `dna_df`: DNA metabarcoding detection data. Contains taxonomic data for detections and the names of their corresponding samples.
+
+- `train`: The classification model's training dataset.
+
+- `valid`: A test dataset input to the classification model.
+
+- `num_ids`: A vector with the numeric labels for the classification model's classfications on the test dataset.
+
+- `assemblages`: DNA-based binary assemblage data for the samples in `valid`.
+
+- `image_hier`: A reference hierarchy based on the known classes of the classification model.
+
+### Data prep
+
+Before we begin we must go through a few data preparation steps. First, we can convert `num_ids` to character names of our model's known classes.
+
+```{r ids}
+num_ids = num_ids[,1]
+num_ids = num_ids + 1
+
+# named classifications
+classes = c(levels(as.factor(train$longlab)))
+ids = classes[num_ids]
+ids = sub(".*_", "", ids)
+```
+
+Next we need to initialize the taxonomic granularity of our known classes. We also need to specify the taxonomic levels we're interested in.
+
+```{r }
+# Initializing taxonomic granularity
+short_classes = levels(as.factor(unique(train$order_plus)))
+class_levels = c("Subclass",
+                 "Phylum",
+                 "Order",
+                 "Order",
+                 "Order",
+                 "Order",
+                 "Order",
+                 "Class",
+                 "Order",
+                 "Order",
+                 "Order",
+                 "Order",
+                 "Subphylum",
+                 "Order",
+                 "Order",
+                 "Order",
+                 "Order")
+og_levels = class_levels[match(ids, short_classes)]
+
+# Initializing taxonomic levels of interest
+taxaorder = c("Species",
+              "Genus",
+              "Subfamily",
+              "Family",
+              "Superfamily",
+              "Infraorder",
+              "Suborder",
+              "Order",
+              "Superorder",
+              "Subclass",
+              "Class",
+              "Subphylum",
+              "Phylum")
+
+```
+
+An important step the in the granularity refinement process is knowing which classifications were detected in their corresponding sample using DNA barcoding. This determines the refinement pathway for the classification in the `dna_bias` and `model_bias` functions (see below). 
+
+Here we create a logical vector called `agreed` that stores this information.
+
+```{r}
+# agreed is a logical vector indicating if the predicted class is detected by the DNA 
+samples = valid$Event
+event_names = assemblages$event
+assemblages = subset(assemblages, select = -event)
+agreed = c()
+for(x in 1:length(num_ids)){
+  agreed[x] = assemblages[which(event_names == samples[x]), num_ids[x]]
+}
+agreed = as.logical(agreed)
+```
+
+The `dna_bias` and `model_bias` functions require DNA data frames to be input with specific column names. Specifically, the DNA data frame must have columns with the names of (a) the taxonomic levels of interest, (b) "sample_id", containing the sample name of each detection, and (c) "known_class", which is the corresponding class name known by the classification model for each detection.
+
+Here we set the `dna_df` column names so they are compliant with the functions' requirements.
+
+```{r}
+# These values will be used for the functions below
+dna_df = dna_df[,c(taxaorder, "Event", "known_class")]
+colnames(dna_df) = c(taxaorder, "sample_id", "known_class")
+```
+
+Now we are ready for classification granularity refinement! We will start with the DNA biased method (i.e. `dna_bias`). The function takes six inputs:
+
+- `dna_df`: A data frame with the DNA detections.
+
+- `og_classes`: The original specimen classifications as output by the model.
+
+- `og_levels`: The original taxonomic ranks of the specimen classifications.
+
+- `samples`: The corresponding sample name for each specimen.
+
+- `agreed`: A logical vector that indicates if each classification was detected by the DNA in its corresponding sample.
+
+- `hierarchy`: A reference hierarchy data frame for the model's known classes.
+
+The output of the function is a list with two vectors. The first vector contains the new, refined label for each specimen. The second vector contains the taxonomic level of the refined label.
+
+```{r}
+output_dbias = dnabias(dna_df = dna_df, 
+               og_classes = ids,
+               og_levels = og_levels,
+               samples = samples, 
+               agreed = agreed, 
+               hierarchy = hierarchy)
+refined_class_dbias = output_dbias[[1]]
+refined_level_dbias = output_dbias[[2]]
+refined_level_dbias = str_to_title(refined_level_dbias)
+
+```
+
+The input and output format for the `model_bias` function is the same as `dna_bias`, so applying it to our data is easy.
+
+```{r}
+output_mbias = modelbias(dna_df = dna_df, 
+                     og_classes = ids, 
+                     og_levels = og_levels,
+                     samples = samples, 
+                     agreed = agreed, 
+                     hierarchy = hierarchy)
+refined_class_mbias = output_mbias[[1]]
+refined_level_mbias = output_mbias[[2]]
+refined_level_mbias = str_to_title(refined_level_mbias)
+
+```
+
+And with that we're done! Now all that is left to do is explore or new data. For example, we could look at the proportion of classifications at each taxonomic level before and after using each method.
+
+```{r, echo = F}
+og_df = data.frame(table(og_levels)/length(og_levels))
+colnames(og_df) = c("Levels", "Original")
+
+dbias_df = data.frame(table(refined_level_dbias)/length(refined_level_dbias))
+colnames(dbias_df) =  c("Levels", "DNA_biassed")
+
+mbias_df = data.frame(table(refined_level_mbias)/length(refined_level_mbias))
+colnames(mbias_df) =  c("Levels", "Model_biassed")
+
+joined = full_join(og_df, dbias_df, by = "Levels")
+joined = full_join(joined, mbias_df, by = "Levels")
+joined$Levels = factor(joined$Levels, levels = taxaorder)
+
+joined = joined %>% arrange(Levels)
+
+joined
+```
+
+
+
+
+
+
+
