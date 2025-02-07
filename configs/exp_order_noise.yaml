@@ -5,13 +5,14 @@
 experiment_name: noise
 
 # environment/computational parameters
-seed: [7028124, 35927022, 11701998, 54659065, 35776248]
+seed: [7028124]
 device: cuda
 num_workers: 4
 
 # dataset parameters
-data_root: C:/Carabid_Data/CV-eDNA
-annotate_root: splits/order
+data_root: C:\Users\au761482\OneDrive - Aarhus universitet\Documents\GitHub_repos\CV-eDNA-Hybrid\Data\Model_Data
+annotate_root: annotations
+img_path: Images
 train_name: train_noise
 val_name: valid_noise
 class_labels: longlab
