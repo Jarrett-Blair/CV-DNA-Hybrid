@@ -1,16 +1,16 @@
 library(caret)
 
-setwd("C:/Carabid_Data/CV-eDNA")
+setwd("C:/Users/au761482/Git_Repos/CV-eDNA-Hybrid/Data/Granularity_Refinement")
 
 mhe = read.csv("dna_mhe_order.csv")
 mhe = mhe[,-1]
+
+events = as.data.frame(table(invert_cleanlab$Event))
 colnames(mhe) = c(levels(as.factor((invert_cleanlab$longlab))))
 event_names = events$Var1
 mhe$Event = event_names
 
 invert_cleanlab = merge(invert_cleanlab, mhe, by = "Event", all = F)
-
-events = as.data.frame(table(invert_cleanlab$Event))
 
 set.seed(123)
 shuffled_data <- events[sample(nrow(events)), ]

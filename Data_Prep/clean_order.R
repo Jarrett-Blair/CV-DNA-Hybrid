@@ -6,7 +6,7 @@ library(stringr)
 library(dplyr)
 
 
-setwd("C:/Carabid_Data/CV-eDNA")
+setwd("C:/Users/au761482/Git_Repos/CV-eDNA-Hybrid/Data/Raw_Data")
 
 #Load data
 invert = read.csv("TaxMorColWea4.1.csv")
@@ -46,25 +46,25 @@ invertmatch = invertmatch[-which(invertmatch$detBy == "KMS"),]
 #Capitalizing detection level column values
 invertmatch$Det_Level = str_to_title(invertmatch$Det_Level)
 
-#Create AllTaxa column, which represents the finest-grain 
+#Create Fine_Name column, which represents the finest-grain 
 #label for each specimen
-AllTaxa = c()
+Fine_Name = c()
 for(i in 1:nrow(invertmatch)){
   if(invertmatch$Det_Level[i] == 'Species'){
-    AllTaxa[i] = invertmatch$PON_Name[i]
+    Fine_Name[i] = invertmatch$PON_Name[i]
   }
   else{
-    AllTaxa[i] = invertmatch[i,invertmatch$Det_Level[i]]
+    Fine_Name[i] = invertmatch[i,invertmatch$Det_Level[i]]
   }
 }
 
-invertmatch$AllTaxa = AllTaxa
+invertmatch$Fine_Name = Fine_Name
 
 #Fixing a couple of labels
 invertmatch = invertmatch %>%
   mutate(
-    Det_Level = if_else(AllTaxa == "indet.", "Order", Det_Level),
-    AllTaxa = if_else(AllTaxa == "indet.", "Amblypigi", AllTaxa)
+    Det_Level = if_else(Fine_Name == "indet.", "Order", Det_Level),
+    Fine_Name = if_else(Fine_Name == "indet.", "Amblypigi", Fine_Name)
   )
 
 #Make a SpeciesName column for ednamatch
@@ -96,7 +96,7 @@ edna_rmdup <- ednamatch %>%
 
 invertmatch <- invertmatch %>%
   #Filter out coarse, nested taxa
-  filter(!AllTaxa %in% c("Arthropoda", "Arachnida", "Insecta")) %>%
+  filter(!Fine_Name %in% c("Arthropoda", "Arachnida", "Insecta")) %>%
 
   #Update detection levels
   mutate(
@@ -107,6 +107,8 @@ invertmatch <- invertmatch %>%
     #   TRUE ~ Det_Level
     # )
   )
+
+setwd("C:/Users/au761482/Git_Repos/CV-eDNA-Hybrid/Data/Clean_Data")
 
 write.csv(invertmatch, "invertmatch.csv", row.names = F)
 write.csv(edna_rmdup, "edna_rmdup.csv", row.names = F)
