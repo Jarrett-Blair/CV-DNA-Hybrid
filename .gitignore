@@ -1,20 +1,19 @@
 # Directories to be ignored
 local
 plots
-
 old_configs
-
 model_states
 LKTL
 pytorch
-
 old_R_scripts
+.Rproj.user
+.ipynb_checkpoints
 
 
 # Filetypes to be ignored
 *.h5
 *.RData
-
+.Rhistory
 
 __pycache__
 *.pyc
