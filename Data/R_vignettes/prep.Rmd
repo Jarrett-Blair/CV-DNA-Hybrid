@@ -118,39 +118,7 @@ image_longlab_df = simphier[match(image_df$base_name, simphier$Species), ]
 
 ```
 
-Now that we have the long label data frame, we are going to do some data cleaning before moving on. In our classification model we grouped all Myriapods, Gastropods, and Annelids together, and only kept classes with 100 or more total observations in the image dataset.
-
-```{r image_longlab_1}
-# Merging up finer-grain labels of gastropods and annelids
-image_longlab_df = image_longlab_df%>%
-  mutate(
-    Order = case_when(
-      Order == "Chilopoda" ~ "Myriapoda",
-      Order == "Diplopoda" ~ "Myriapoda",
-      Class == "Myriapoda" ~ "Myriapoda",
-      Class == "Gastropoda" ~ "Gastropoda",
-      Phylum == "Annelida" ~ "Annelida",
-      TRUE ~ Order
-    ),
-    Class = case_when(
-      Class == "Chilopoda" ~ "Myriapoda",
-      Class == "Diplopoda" ~ "Myriapoda",
-      Phylum == "Annelida" ~ "Annelida",
-      TRUE ~ Class
-    )
-  )
-
-# Determine which taxa are >100 obs
-alltable = table(image_longlab_df$Order)
-allname = names(which(alltable > 99))
-
-keep_idx = image_longlab_df$Order %in% allname
-
-image_df = image_df[keep_idx,]
-image_longlab_df = image_longlab_df[keep_idx,]
-```
-
-Once we have cleaned the data frame, we can make our final image long labels. For this example we are using taxonomic names from phylum to order level.
+Now we can make our image long labels. For this example we are using taxonomic names from phylum to order level.
 
 ```{r image_longlab_2}
 
@@ -162,7 +130,7 @@ image_df$longlab = image_longlab_vector
 
 ```
 
-Now that we have made our image long labels, we can also make DNA long labels, starting with the DNA long label data frame.
+We can also make DNA long labels, starting with the DNA long label data frame.
 
 ```{r dna_longlab_1}
 dna_longlabels = dna_hier[match(dna_df$base_name, dna_hier$Species), ]
